@@ -1,0 +1,86 @@
+name: Test, Build, Push, and Deploy Memory
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  test-memory:
+    runs-on: self-hosted
+
+    steps:
+      # Étape pour récupérer le dépôt
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # Étape pour vérifier les fichiers JPEG
+      - name: Check JPEG files
+        run: |
+          echo "Checking for corrupted JPEG files"
+          # Chercher tous les fichiers .jpg et vérifier leur intégrité avec la commande `file`
+          find . -name '*.jpg' | while read filename; do
+            if ! file "$filename" | grep -q 'JPEG image data'; then
+              echo "$filename is corrupted"
+              # Remplacer le fichier corrompu par un autre fichier JPEG valide
+              cp /path/to/valid/replacement.jpg "$filename"
+              echo "$filename has been replaced with a valid JPEG"
+            else
+              echo "$filename is valid"
+            fi
+          done
+
+  build-memory:
+    runs-on: self-hosted
+    needs: test-memory # Le job build-memory ne s'exécute qu'après test-memory
+
+    steps:
+      # Étape pour récupérer le dépôt
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # Étape pour builder l'image Docker
+      - name: Build Docker image
+        run: |
+          echo "Building Docker image"
+          docker build -t yoyo338/memory .
+
+  push-memory:
+    runs-on: self-hosted
+    needs: build-memory # Le job push-memory ne s'exécute qu'après build-memory
+
+    steps:
+      # Étape pour récupérer le dépôt
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # Étape pour pousser l'image sur DockerHub
+      - name: Push Docker image to DockerHub
+        run: |
+          echo "Pushing Docker image to DockerHub"
+          docker login -u yoyo338 -p ${{ secrets.DOCKERHUB_PASSWORD }}
+          docker push yoyo338/memory
+
+  deploy-memory:
+    runs-on: self-hosted
+    needs: push-memory # Le job deploy-memory ne s'exécute qu'après push-memory
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Pull Docker images and start containers
+        run: |
+          if [ "$(docker ps -q -f name=memory-container)" ]; then
+              echo "Container 'memory' is running. Stopping and removing it."
+              docker stop nginx-SSH
+          else
+              echo "Container 'memory' is not running."
+          fi
+          if [ "$(docker ps -q -a -f name=memory-container)" ]; then
+            docker rm nginx-SSH
+          fi
+          ssh ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }} << 'EOF'
+          docker pull yoyo338/memory
+          docker run -d --name memory-container -p 80:80 yoyo338/memory
+        EOF
