@@ -19,7 +19,7 @@ jobs:
         run: |
           echo "Checking for corrupted JPEG files"
           corrupted=false
-# Chercher tous les fichiers .jpg et vérifier leur intégrité avec la commande `file`
+          # Chercher tous les fichiers .jpg et vérifier leur intégrité avec la commande `file`
           find . -name '*.jpg' | while read filename; do
             if ! file "$filename" | grep -q 'JPEG image data'; then
               echo "$filename is corrupted"
