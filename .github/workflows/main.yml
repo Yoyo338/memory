@@ -18,19 +18,23 @@ jobs:
       - name: Check JPEG files
         run: |
           echo "Checking for corrupted JPEG files"
-          corrupted=false
+          corrupted_files=()  # Tableau pour stocker les fichiers corrompus
+
           # Chercher tous les fichiers .jpg et vérifier leur intégrité avec la commande `file`
           find . -name '*.jpg' | while read filename; do
             if ! file "$filename" | grep -q 'JPEG image data'; then
               echo "$filename is corrupted"
-              corrupted=true
+              corrupted_files+=("$filename")  # Ajouter le fichier corrompu au tableau
             else
               echo "$filename is valid"
             fi
           done
 
-          if [ "$corrupted" = true ]; then
-            exit 1
+          # Vérifier si des fichiers corrompus ont été trouvés
+          if [ ${#corrupted_files[@]} -gt 0 ]; then
+            echo "Corrupted files found:"
+            printf "%s\n" "${corrupted_files[@]}"
+            exit 1  # Retourner une erreur si des fichiers sont corrompus
           fi
 
   build-memory:
