@@ -1,0 +1,106 @@
+name: Test, Build, Push, and Deploy Memory
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  test-memory:
+    runs-on: self-hosted
+
+    steps:
+      # Étape pour récupérer le dépôt
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # Étape pour vérifier les fichiers JPEG
+      - name: Check JPEG files
+        run: |
+          echo "Checking for corrupted JPEG files"
+          corrupted_files=0  # Tableau pour stocker les fichiers corrompus
+
+          # Chercher tous les fichiers .jpg et vérifier leur intégrité avec la commande `file`
+          find . -name '*.jpg' | while read filename; do
+            if ! file "$filename" | grep -q 'JPEG image data'; then
+              echo "$filename is corrupted"
+              corrupted_files+=1
+            else
+              echo "$filename is valid"
+            fi
+          done
+
+          echo "Number of corrupted files: ${#corrupted_files}"
+  build-memory:
+    runs-on: self-hosted
+    needs: test-memory # Le job build-memory ne s'exécute qu'après test-memory
+
+    steps:
+      # Étape pour récupérer le dépôt
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # Étape pour builder l'image Docker
+      - name: Build Docker image
+        run: |
+          echo "Building Docker image"
+          docker build -t yoyo338/memory .
+
+  push-memory:
+    runs-on: self-hosted
+    needs: build-memory # Le job push-memory ne s'exécute qu'après build-memory
+
+    steps:
+      # Étape pour récupérer le dépôt
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # Étape pour pousser l'image sur DockerHub
+      - name: Push Docker image to DockerHub
+        run: |
+          echo "Pushing Docker image to DockerHub"
+          docker login -u yoyo338 -p ${{ secrets.DOCKERHUB_PASSWORD }}
+          docker push yoyo338/memory
+
+  deploy-memory:
+    name: Deploy to Remote Server
+    runs-on: self-hosted
+    needs: push-memory
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install Docker Compose on remote server
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }} << 'EOF'
+            echo "${{ secrets.REMOTE_PASSWORD }}" | sudo -S apt-get update
+            echo "${{ secrets.REMOTE_PASSWORD }}" | sudo -S apt-get install -y docker-compose
+          EOF
+
+      - name: Copy docker-compose.yml to remote server
+        run: |
+          scp -o StrictHostKeyChecking=no docker-compose.yml ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }}:~/docker-compose.yml
+
+      - name: Pull Docker images and start containers
+        run: |
+          if [ "$(docker ps -q -f name=memory-SSH)" ]; then
+            echo "Container 'memory-SSH' is running. Stopping it."
+            docker stop memory-SSH
+          else
+            echo "Container 'memory-SSH' is not running."
+          fi
+
+          if [ "$(docker ps -a -q -f name=memory-SSH)" ]; then
+            echo "Container 'memory-SSH' exists. Removing it."
+            docker rm memory-SSH
+          else
+            echo "Container 'memory-SSH' does not exist."
+          fi
+
+          ssh -o StrictHostKeyChecking=no ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }} << 'EOF'
+            cd ~
+            export DOCKER_HUB_USERNAME=yoyo338
+            echo "${{ secrets.REMOTE_PASSWORD }}" | sudo -S docker-compose pull
+            echo "${{ secrets.REMOTE_PASSWORD }}" | sudo -S docker-compose up -d
+          EOF

@@ -1,0 +1,8 @@
+version: '3.3'
+
+services:
+  memory:
+    image: yoyo338/memory:latest
+    ports:
+      - "80:80"
+    restart: always
