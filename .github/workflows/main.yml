@@ -73,12 +73,12 @@ jobs:
         run: |
           if [ "$(docker ps -q -f name=memory-container)" ]; then
               echo "Container 'memory' is running. Stopping and removing it."
-              docker stop nginx-SSH
+              docker stop memory-container
           else
               echo "Container 'memory' is not running."
           fi
           if [ "$(docker ps -q -a -f name=memory-container)" ]; then
-            docker rm nginx-SSH
+            docker rm memory-container
           fi
           ssh ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }} << 'EOF'
           docker pull yoyo338/memory
