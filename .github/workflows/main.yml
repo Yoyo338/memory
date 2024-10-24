@@ -31,12 +31,13 @@ jobs:
           done
 
           # Vérifier si des fichiers corrompus ont été trouvés
-          if [ ${#corrupted_files[@]} -gt 0 ]; then
+          if [ ${#corrupted_files[@]} -ne 0 ]; then
             echo "Corrupted files found:"
             printf "%s\n" "${corrupted_files[@]}"
             exit 1  # Retourner une erreur si des fichiers sont corrompus
+          else
+            echo "No corrupted files found."
           fi
-
   build-memory:
     runs-on: self-hosted
     needs: test-memory # Le job build-memory ne s'exécute qu'après test-memory
