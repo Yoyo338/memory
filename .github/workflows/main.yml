@@ -64,9 +64,9 @@ jobs:
           docker login -u yoyo338 -p ${{ secrets.DOCKERHUB_PASSWORD }}
           docker push yoyo338/memory
 
- deploy-memory:
+   deploy-memory:
     name: Deploy to Remote Server
-    runs-on: [self-hosted]
+    runs-on: self-hosted
     needs: push-memory
 
     steps:
