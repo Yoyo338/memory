@@ -83,4 +83,5 @@ jobs:
           ssh ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }} << 'EOF'
           docker pull yoyo338/memory
           docker run -d --name memory-container -p 80:80 yoyo338/memory
-        EOF
+          EOF
+
