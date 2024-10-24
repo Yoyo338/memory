@@ -23,7 +23,7 @@ jobs:
             if ! file "$filename" | grep -q 'JPEG image data'; then
               echo "$filename is corrupted"
               # Remplacer le fichier corrompu par un autre fichier JPEG valide
-              cp /path/to/valid/replacement.jpg "$filename"
+              cp html/data/croix.jpg "$filename"
               echo "$filename has been replaced with a valid JPEG"
             else
               echo "$filename is valid"
