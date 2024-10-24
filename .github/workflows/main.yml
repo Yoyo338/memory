@@ -30,6 +30,7 @@ jobs:
             fi
           done
 
+          echo "Number of corrupted files: ${#corrupted_files[@]}"
           # Vérifier si des fichiers corrompus ont été trouvés
           if [ ${#corrupted_files[@]} -ne 0 ]; then
             echo "Corrupted files found:"
