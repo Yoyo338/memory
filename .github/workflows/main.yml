@@ -64,27 +64,45 @@ jobs:
           docker login -u yoyo338 -p ${{ secrets.DOCKERHUB_PASSWORD }}
           docker push yoyo338/memory
 
-  deploy-memory:
-    runs-on: self-hosted
-    needs: push-memory # Le job deploy-memory ne s'exécute qu'après push-memory
+ deploy-memory:
+    name: Deploy to Remote Server
+    runs-on: [self-hosted]
+    needs: push-memory
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Pull Docker images and start containers
+      - name: Install Docker Compose on remote server
         run: |
-          if [ "$(docker ps -q -f name=memory-container)" ]; then
-              echo "Container 'memory' is running. Stopping and removing it."
-              docker stop memory-container
-          else
-              echo "Container 'memory' is not running."
-          fi
-          if [ "$(docker ps -q -a -f name=memory-container)" ]; then
-            docker rm memory-container
-          fi
-          ssh ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }} << 'EOF'
-          docker pull yoyo338/memory
-          docker run -d --name memory-container -p 80:80 yoyo338/memory
+          ssh -o StrictHostKeyChecking=no ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }} << 'EOF'
+            echo "${{ secrets.REMOTE_PASSWORD }}" | sudo -S apt-get update
+            echo "${{ secrets.REMOTE_PASSWORD }}" | sudo -S apt-get install -y docker-compose
           EOF
 
+      - name: Copy docker-compose.yml to remote server
+        run: |
+          scp -o StrictHostKeyChecking=no docker-compose.yml ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }}:~/docker-compose.yml
+
+      - name: Pull Docker images and start containers
+        run: |
+          if [ "$(docker ps -q -f name=memory-SSH)" ]; then
+            echo "Container 'memory-SSH' is running. Stopping it."
+            docker stop memory-SSH
+          else
+            echo "Container 'memory-SSH' is not running."
+          fi
+
+          if [ "$(docker ps -a -q -f name=memory-SSH)" ]; then
+            echo "Container 'memory-SSH' exists. Removing it."
+            docker rm memory-SSH
+          else
+            echo "Container 'memory-SSH' does not exist."
+          fi
+
+          ssh -o StrictHostKeyChecking=no ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }} << 'EOF'
+            cd ~
+            export DOCKER_HUB_USERNAME=yoyo338
+            echo "${{ secrets.REMOTE_PASSWORD }}" | sudo -S docker-compose pull
+            echo "${{ secrets.REMOTE_PASSWORD }}" | sudo -S docker-compose up -d
+          EOF
